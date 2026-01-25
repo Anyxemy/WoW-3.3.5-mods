@@ -1,0 +1,24 @@
+------------------------------------------------------------------------
+r98 | lilsparky | 2010-07-24 02:09:13 +0000 (Sat, 24 Jul 2010) | 2 lines
+Changed paths:
+   M /trunk/pricingSupport/cachedPrices_support.lua
+
+fixed some bad logic in price cache system
+
+------------------------------------------------------------------------
+r97 | lilsparky | 2010-07-23 22:48:26 +0000 (Fri, 23 Jul 2010) | 2 lines
+Changed paths:
+   M /trunk/LilSparkysWorkshop.toc
+   M /trunk/lilsparkysworkshop.lua
+   A /trunk/pricingSupport/cachedPrices_support.lua
+   M /trunk/pricingSupport/commonSkills_support.lua
+
+fixed nil compare in view as percent mode
+added cached auction price support
+------------------------------------------------------------------------
+r96 | lilsparky | 2010-05-29 04:15:36 +0000 (Sat, 29 May 2010) | 1 line
+Changed paths:
+   M /trunk/lilsparkysworkshop.lua
+
+further updates for gnomeworks support
+------------------------------------------------------------------------
