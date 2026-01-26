@@ -209,28 +209,30 @@ function DataCore:UpdateAllRdbPrices()
             local cost = 0
             for rID, count in pairs(data.reagents) do
                 --dprint("rID " .. rID .. "   count ".. count)
-                            LSW.UpdateItemCost(rID)         -- Прогреваем цену в LSW
-                            -- Достаем результат напрямую из кеша
-                local cache = LSW.itemCache[rID]
-                local bestCost = (cache and cache.bestCost) or 0
-                cost = cost + (bestCost * count)
-                if id % 30 == 1 then dprint("   реагент " .. rID .. "   cost " .. bestCost) end
+                LSW.UpdateItemValue(rID) LSW.UpdateItemCost(rID)
+                if LSWPrices.cost[rID] or LSWPrices.value[rID] then -- тут цена
+                    cost = LSWPrices.value[rID]
+                    if LSWPrices.cost[rID] > cost then cost = LSWPrices[rID] end
+                    cost = cost * count
+                    if id % 30 == 1 then dprint("   реагент " .. rID .. "   cost " .. cost) end
+                else
+                    dprint(rID .. "  Цена не найдена")
+                end
             end
             data.spellCost = cost
-                    -- Обновляем цену самого результата (Profit)
+            -- Обновляем цену предмета
             if data.itemID then
-                LSW.UpdateItemValue(data.itemID)
-                local vCache = LSW.itemCache[data.itemID]
-                data.spellValue = (vCache and vCache.bestValue) or 0
+                LSW.UpdateItemValue(data.itemID) LSW.UpdateItemCost(data.itemID)
+                cost = LSWPrices.value[rID]
+                if LSWPrices.cost[rID] > cost then cost = LSWPrices[rID] end
                 if id % 30 == 1 then dprint("   предмет " .. data.itemID .. "  цена " .. cost) end
             else
-
+                dprint(data.itemID .. "  Цена не найдена")
             end
-            --if id % 30 == 1 then dprint("   предмет " .. data.itemID .. "  цена " .. cost) end
         end
     end
     Rdb.Meta.lastUpdate = time()
-    print("|cff00ff00[LSW-Bridge]:|r База Rdb успешно синхронизирована (" .. time() .. ")")
+        print("|cff00ff00[LSW-Bridge]:|r База Rdb успешно синхронизирована (" .. time() .. ")")
 end
 
 -- ==========================================
