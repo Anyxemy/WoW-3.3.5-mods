@@ -416,7 +416,7 @@ DataCore.Processor = CreateFrame("Frame")
             DataCore.CurrentIndex = DataCore.CurrentIndex + 1
             -- Чек-поинт каждые 10 рецептов
             if DataCore.CurrentIndex % 10 == 0 then
-                print(string.format("|cff00ff00[DataCore]:|r Прогресс %d/%d", DataCore.CurrentIndex, # DataCore.Queue))
+                print(string.format("|cff00ff00[DataCore]:|r Прогресс %d/%d", tostring(DataCore.CurrentIndex), #DataCore.Queue))
             end
 
         elseif status == "COMPLETED" then
