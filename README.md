@@ -9,6 +9,6 @@
   Обновление цен в базе работает, вызовом функции "/run UpdateRdbPrices()"
 
   Запуск:
-  1. Cкопировать папку LilSparkysWorkshop в \Interface\Addons\
+  1. Cкопировать папки LilSparkysWorkshop и AckisRecipeList в \Interface\Addons\ (в папке игры)
   2. открыть окно ARL на нужной профессии, в чате игры "/run UpdateRdbSkills()" один раз для каждой профессии
   3. в чате "/run UpdateRdbPrices()"  каждый раз для обновления цен, потом будет кнопка
