@@ -224,8 +224,8 @@ function DataCore:UpdateAllRdbPrices()
             -- Обновляем цену предмета
             if data.itemID then
                 LSW.UpdateItemValue(data.itemID) LSW.UpdateItemCost(data.itemID)
-                cost = LSWPrices.value[rID]
-                if LSWPrices.cost[rID] > cost then cost = LSWPrices[rID] end
+                cost = LSWPrices.value[data.itemID]
+                if LSWPrices.cost[data.itemID] > cost then cost = LSWPrices[data.itemID] end
                 local name = GetItemInfo(data.itemID)
                 if id % 30 == 1 then dprint(name, data.itemID .. "  цена " .. cost) end
             else
@@ -321,13 +321,11 @@ function DataCore:ScanStep()
     local lineText = _G["DataCoreScannerTooltipTextLeft2"]:GetText() or ""
 
     if lineText:find(reagentsLoc) then -- if lineText:find("Реагенты:") then
-        if not Rdb[spellID] or DataCore.purge then  -- еще нет такого предмета в базе
-            Rdb.Meta.Entries[prof] = Rdb.Meta.Entries[prof] + 1
-        end
         Rdb[spellID] = {}
+        dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
+        Rdb.Meta.Entries[prof] = Rdb.Meta.Entries[prof] + 1
         Rdb[spellID].itemID = ARL:GetRecipeData(spellID, "item_id")
         dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
-
         local data = lineText:match("Реагенты:%s*(.*)")     -- Извлекаем всё после "Реагенты:"
         --dprint("0 " .. data)
         if data then
@@ -378,7 +376,7 @@ function DataCore:ScanStep()
                 end
             end
         end
-    end
+        dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
 
         -- 3. Несколько попыток если данные не получены
     if self.Wdc >= wdcLim then       -- WatchDogCounter
@@ -390,6 +388,7 @@ function DataCore:ScanStep()
         dprint("WDC WAIT " .. self.Wdc)
         return "WAIT"
     end
+        dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
 end
 
 
@@ -403,30 +402,32 @@ DataCore.Processor = CreateFrame("Frame")
     DataCore.Processor:Hide() -- По умолчанию выключен
 
     DataCore.Processor:SetScript("OnUpdate", function(self, elapsed)
-    local spellID = DataCore.Queue[DataCore.CurrentIndex] or "DONE"
-    self.text:SetText(string.format("Scan: %d/%d | ID: %s", DataCore.CurrentIndex, #DataCore.Queue, tostring(spellID)))
-    -- Ограничитель скорости (раз в 0.05 сек), чтобы не спамить в пустую
-    self.timer = (self.timer or 0) + elapsed
-    if self.timer < 0.05 then return end
-    self.timer = 0
+        local spellID = DataCore.Queue[DataCore.CurrentIndex] or "DONE"
+        self.text:SetText(string.format("Scan: %d/%d | ID: %s", DataCore.CurrentIndex, #DataCore.Queue, tostring(spellID)))
+        -- Ограничитель скорости (раз в 0.05 сек), чтобы не спамить в пустую
+        self.timer = (self.timer or 0) + elapsed
+        if self.timer < 0.1 then return end
+        self.timer = 0
 
-    local status = DataCore:ScanStep()
-    --dprint("ScanStep status " .. tostring(status))
+        local status = DataCore:ScanStep()
+        --dprint("ScanStep status " .. tostring(status))
 
-    if status == "NEXT" then
-        DataCore.CurrentIndex = DataCore.CurrentIndex + 1
-        -- Чек-поинт каждые 10 рецептов
-        if DataCore.CurrentIndex % 10 == 0 then
-            print(string.format("|cff00ff00[DataCore]:|r Прогресс %d/%d", DataCore.CurrentIndex, # DataCore.Queue))
+        if status == "NEXT" then
+            DataCore.CurrentIndex = DataCore.CurrentIndex + 1
+            -- Чек-поинт каждые 10 рецептов
+            if DataCore.CurrentIndex % 10 == 0 then
+                print(string.format("|cff00ff00[DataCore]:|r Прогресс %d/%d", DataCore.CurrentIndex, # DataCore.Queue))
+            end
+
+        elseif status == "COMPLETED" then
+            print("[DataCore]:|r Скан всей базы завершен успешно!")
+            self:Hide()
+            dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
+        elseif status == "WAIT" then
+            -- Просто пропускаем тик, ждем ответа сервера
         end
-
-    elseif status == "COMPLETED" then
-        print("[DataCore]:|r Скан всей базы завершен успешно!")
-        self:Hide()
-    elseif status == "WAIT" then
-        -- Просто пропускаем тик, ждем ответа сервера
-    end
-end)
+    end)
+end
 
 
 function SyncRdbWithLSW()
