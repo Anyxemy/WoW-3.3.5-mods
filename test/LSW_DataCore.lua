@@ -213,10 +213,11 @@ function DataCore:UpdateAllRdbPrices()
                 if LSWPrices.cost[rID] or LSWPrices.value[rID] then -- тут цена
                     cost = LSWPrices.value[rID]
                     if LSWPrices.cost[rID] > cost then cost = LSWPrices[rID] end
+                    local name = GetItemInfo(rID)
+                    if id % 30 == 1 then dprint(name, rID .. "   цена " .. cost) end
                     cost = cost * count
-                    if id % 30 == 1 then dprint("   реагент " .. rID .. "   cost " .. cost) end
                 else
-                    dprint(rID .. "  Цена не найдена")
+                    dprint("  Предмета нет!")
                 end
             end
             data.spellCost = cost
@@ -225,9 +226,10 @@ function DataCore:UpdateAllRdbPrices()
                 LSW.UpdateItemValue(data.itemID) LSW.UpdateItemCost(data.itemID)
                 cost = LSWPrices.value[rID]
                 if LSWPrices.cost[rID] > cost then cost = LSWPrices[rID] end
-                if id % 30 == 1 then dprint("   предмет " .. data.itemID .. "  цена " .. cost) end
+                local name = GetItemInfo(data.itemID)
+                if id % 30 == 1 then dprint(name, data.itemID .. "  цена " .. cost) end
             else
-                dprint(data.itemID .. "  Цена не найдена")
+                dprint("  Предмета нет!")
             end
         end
     end
