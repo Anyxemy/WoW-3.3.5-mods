@@ -275,7 +275,7 @@ do
 			progressBar.textLeft:SetPoint("LEFT",10,0)
 
 			progressBar.textRight = progressBar.frame:CreateFontString(nil,"ARTWORK","GameFontNormalSmall")
-			--progressBar.textRight:SetText("0%")
+	--		progressBar.textRight:SetText("0%")
 			progressBar.textRight:SetPoint("RIGHT",-10,0)
 		end
 
@@ -285,7 +285,7 @@ do
 
 	function progressBar:Show(progress, text)
 		if progressBar.frame then
-			--	progressBar.frame:Show()
+--			progressBar.frame:Show()
 			if not LSW:GetTimer("showProgressBar") and not progressBar.frame:IsVisible() then
 				LSW:CreateTimer("showProgressBar", 0.25, function() progressBar.frame:Show() end)
 			end
@@ -331,7 +331,7 @@ do
 	local LSW_MINIMUM_ITEM_AUCTIONS = 1
 
 	local ENCHANT_ID="?"		-- enchants have no item fate
-	
+
 	local itemFateColor={
 		["d"]="ff008000",
 		["a"]="ff909050",
@@ -339,7 +339,7 @@ do
 		["?"]="ff800000",
 	}
 
-	--	local LSW_itemFateColor[LSW_ENCHANT_ID]="ffffffff";
+--	local LSW_itemFateColor[LSW_ENCHANT_ID]="ffffffff";
 	local priceDataSync = 1
 	local recipeCache={ names = {}, results = {}, reagents = {}, canCraft = {}, enchants = {}, sync = {}, cost = {} }
 	local itemCache={}
@@ -351,7 +351,7 @@ do
 	local globalFate = 0
 	local globalFateMax = 2
 	local valueAsPercent = false 	-- display % for values
-	
+
 	local globalSource = 0
 
 	local currentSkillLevel = 1
@@ -362,8 +362,8 @@ do
 
 	local fateString={["a"]="Auction", ["v"]="Vendor", ["d"]="Disenchant"}
 
-	--	local LSWTooltip = CreateFrame("GameTooltip", "LSWTooltipFrame", UIParent, "GameTooltipTemplate")
-	--	LSWTooltip:SetScale(0.8)
+--	local LSWTooltip = CreateFrame("GameTooltip", "LSWTooltipFrame", UIParent, "GameTooltipTemplate")
+--			LSWTooltip:SetScale(0.8)
 	local LSWTooltip = GameTooltip
 
 
@@ -447,7 +447,7 @@ do
 
 			if (not GetItemInfo(link)) then
 				self:ErrorMessage("no local cache info for "..link);
-				--	GameTooltip:SetHyperlink(link);
+	--			GameTooltip:SetHyperlink(link);
 			end
 		end
 	end
@@ -463,7 +463,7 @@ do
 
 
 		if (money < 0) then
-			--	return "   --"
+--			return "   --"
 			neg = true
 			money = -money
 		end
@@ -600,15 +600,15 @@ do
 
 
 		if periodicTable and not LSW.vendorAvailability then
-			--DEFAULT_CHAT_FRAME:AddMessage("using lib pt for vendor database")
+--DEFAULT_CHAT_FRAME:AddMessage("using lib pt for vendor database")
 			LSW.vendorAvailability = function(itemID)
 				if itemID > 0 then
 					if periodicTable:ItemInSet(itemID,"Tradeskill.Mat.BySource.Vendor") then
-						--DEFAULT_CHAT_FRAME:AddMessage("item "..itemID.." is a vendor item "..tostring(GetItemInfo(itemID)))
+--DEFAULT_CHAT_FRAME:AddMessage("item "..itemID.." is a vendor item "..tostring(GetItemInfo(itemID)))
 						return true
 					end
 				end
-				--DEFAULT_CHAT_FRAME:AddMessage("item "..itemID.." not a vendor item "..tostring(GetItemInfo(itemID)))
+--DEFAULT_CHAT_FRAME:AddMessage("item "..itemID.." not a vendor item "..tostring(GetItemInfo(itemID)))
 				return false
 			end
 		end
@@ -721,7 +721,7 @@ do
 
 
 	local function AddToItemCache(itemID, recipeID, numMade)
-		--LSW:ChatMessage("add item "..tostring(itemID))
+--LSW:ChatMessage("add item "..tostring(itemID))
 		if itemID and not itemCache[itemID] then
 			itemCache[itemID] = {}
 
@@ -730,7 +730,7 @@ do
 
 			itemCache[itemID].vendorValue = LSW.vendorValue(itemID) or 0
 
-			-- TODO: add canCraft to de results
+-- TODO: add canCraft to de results
 			local deTable = LSW.getDisenchantResults(itemID)
 
 			if deTable then
@@ -746,14 +746,14 @@ do
 					cache.craftSource[-itemID] = count
 
 
-					--	recipeCache[-itemID] = {}
-					
+--					recipeCache[-itemID] = {}
+
 					recipeCache.names[-itemID] = "Disenchant "..(GetItemInfo(itemID) or "item:"..itemID)
 
 					recipeCache.results[-itemID] = deTable
 
 					if recipeCache.reagents[recipeID] then										-- if item is craftable, copy the reagents to the de reagents otherwise just stuff in the itemID as the sole reagent
-					recipeCache.reagents[-itemID] = recipeCache.reagents[recipeID]
+						recipeCache.reagents[-itemID] = recipeCache.reagents[recipeID]
 					else
 						recipeCache.reagents[-itemID] = { [itemID] = 1 }
 					end
@@ -807,8 +807,8 @@ do
 
 
 	function LSW:AddRecipe(recipeID, name, resultsTable, reagentsTable, canCraft)
-		--local recipe = {}
-		
+--		local recipe = {}
+
 		recipeCache.results[recipeID] = resultsTable
 
 		for itemID, count in pairs(resultsTable) do
@@ -823,14 +823,14 @@ do
 
 		recipeCache.names[recipeID] = name
 
-		--recipeCache[recipeID] = recipe
+--		recipeCache[recipeID] = recipe
 	end
 
 
 	local function SetSecondaryLevels()
 		if not tradeLinked then
 			local spellLink, tradeLink = GetSpellLink(7411)			-- enchanting
-			
+
 			if tradeLink then
 				local level = string.match(tradeLink, "trade:%d+:(%d+)")
 
@@ -838,7 +838,7 @@ do
 			end
 
 			local spellLink, tradeLink = GetSpellLink(25229)		-- jewelcrafting
-			
+
 			if tradeLink then
 				local level = string.match(tradeLink,"trade:%d+:(%d+)")
 
@@ -846,7 +846,7 @@ do
 			end
 
 			local spellLink, tradeLink = GetSpellLink(45357)		-- inscription
-			
+
 			if tradeLink then
 				local level = string.match(tradeLink,"trade:%d+:(%d+)")
 
@@ -897,8 +897,8 @@ do
 					if itemID then
 						local min, max = GetTradeSkillNumMade(i)
 
-						--recipeCache[recipeID] = {}
-						
+--						recipeCache[recipeID] = {}
+
 						recipeCache.results[recipeID] = {[itemID] = (min+max)/2}
 
 						recipeCache.reagents[recipeID] = {}
@@ -910,8 +910,8 @@ do
 						for j=1,GetTradeSkillNumReagents(i) do
 							local _,_,count = GetTradeSkillReagentInfo(i,j)
 							local itemLink = GetTradeSkillReagentItemLink(i,j)
-							--LSW:ChatMessage("recipe "..tostring(recipeLink).." reagent "..tostring(itemLink))
-							
+	--LSW:ChatMessage("recipe "..tostring(recipeLink).." reagent "..tostring(itemLink))
+
 							local itemID = LSW:FindID(itemLink)
 
 							if itemID then
@@ -1003,13 +1003,13 @@ do
 		if cache then
 			local _, itemLink = GetItemInfo(itemID)
 
-			if itemLink then
-				spam = itemLink:find("Ink")
-				spam = false
-			end
+if itemLink then
+	spam = itemLink:find("Ink")
+	spam = false
+end
 
-			LSW:DebugMessage(spam, "updating prices for "..(itemLink or itemID))
-			
+LSW:DebugMessage(spam, "updating prices for "..(itemLink or itemID))
+
 			if cache.syncCost ~= priceDataSync then
 				cache.syncCost = priceDataSync
 
@@ -1017,10 +1017,10 @@ do
 					cache.auctionCost, cache.auctionCostCount = LSW.auctionCost(itemID)
 				end
 
-				LSW:DebugMessage(spam, "can craft? "..tostring(cache.canCraft))
-				
+LSW:DebugMessage(spam, "can craft? "..tostring(cache.canCraft))
+
 				cache.bestCost = nil					-- needed to help avoid infinite loops in recursion
-				
+
 				local canCraft = cache.canCraft and (type(cache.canCraft) ~= "table" or (LSW[cache.canCraft[1]] >= cache.canCraft[2]))
 
 				if (not LSWConfig.personalCraftability or canCraft) and (LSWConfig.costBasis == COST_BASIS_PURCHASE or LSWConfig.forceCraft) and cache.craftSource then
@@ -1028,20 +1028,20 @@ do
 					local bestCraftID
 					local bestCraftResidual
 
-					LSW:DebugMessage(spam, "crafting check for "..(itemLink or itemID))
-					
+LSW:DebugMessage(spam, "crafting check for "..(itemLink or itemID))
+
 					for recipeID, numMade in pairs(cache.craftSource) do
 						if numMade > .1 then								-- don't chase rare results or we'll end up having 100's of crafts to be made
-						
-						LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(recipeID) or "no spell").." yields "..numMade)
-						
+
+LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(recipeID) or "no spell").." yields "..numMade)
+
 							local totalCost = 0
 							local totalValue = 0
 							local recursive
 
 
 							for subItemID, numCrafted in pairs(recipeCache.results[recipeID]) do				-- the recipe might also produce other items so consider them as residual value
-							if subItemID ~= itemID then
+								if subItemID ~= itemID then
 									if LSWConfig.residualPricing == COST_BASIS_RESALE then
 										UpdateItemValue(subItemID)
 
@@ -1051,13 +1051,13 @@ do
 
 										totalValue = totalValue + (itemCache[subItemID].bestCost or 0) * numCrafted
 									end
-									--	UpdateItemValue(subItemID)
-									--	totalValue = totalValue + (itemCache[subItemID].bestValue or 0) * numCrafted			-- maybe should use bestCost here?
+--									UpdateItemValue(subItemID)
+--									totalValue = totalValue + (itemCache[subItemID].bestValue or 0) * numCrafted			-- maybe should use bestCost here?
 								end
 							end
 
 							for reagentID, numNeeded in pairs(recipeCache.reagents[recipeID]) do					-- add up the cost of all materials (recursive so avoid loops by breaking when current price is nil)
-							UpdateItemCost(reagentID)
+								UpdateItemCost(reagentID)
 
 								if itemCache[reagentID].bestCost and LSWConfig.costBasis == COST_BASIS_PURCHASE then
 									totalCost = totalCost + itemCache[reagentID].bestCost * numNeeded
@@ -1091,7 +1091,7 @@ do
 				local itemIsVendorItem = LSW.vendorAvailability and LSW.vendorAvailability(itemID)
 
 				if LSWConfig.costBasis == COST_BASIS_PURCHASE then									-- best = least money
-				if not LSW.vendorAvailability or itemIsVendorItem then
+					if not LSW.vendorAvailability or itemIsVendorItem then
 						if not bestCost or (cache.vendorCost and bestCost > cache.vendorCost) then
 							bestCost = cache.vendorCost
 							if bestCost then
@@ -1171,10 +1171,10 @@ do
 
 				recipeCache.sync[recipeID] = priceDataSync
 
-				--for itemID, numNeeded in pairs(cache.reagents) do
-				--	buy = buy + numNeeded * math.max(itemCache[itemID].vendorCost or itemCache[itemID].auctionCost, itemCache[itemID].auctionCost)
-				--	sell = sell + numNeeded * math.max(itemCache[itemID].vendorValue, itemCache[itemID].auctionValue)
-				--end
+	--			for itemID, numNeeded in pairs(cache.reagents) do
+	--				buy = buy + numNeeded * math.max(itemCache[itemID].vendorCost or itemCache[itemID].auctionCost, itemCache[itemID].auctionCost)
+	--				sell = sell + numNeeded * math.max(itemCache[itemID].vendorValue, itemCache[itemID].auctionValue)
+	--			end
 
 				for itemID, numNeeded in pairs(recipeCache.reagents[recipeID]) do
 					UpdateItemCost(itemID)
@@ -1236,7 +1236,7 @@ do
 
 			if LSW.parentFrame:IsVisible() then
 				LSW:RefreshWindow()
-				--	LSW:ChatMessage("DONE in "..floor((GetTime() - updateIterateStartTime)*1000)/1000 .." seconds")
+--				LSW:ChatMessage("DONE in "..floor((GetTime() - updateIterateStartTime)*1000)/1000 .." seconds")
 			end
 
 			progressBar:Hide()
@@ -1257,7 +1257,7 @@ do
 		progressBar:Init(LSW.parentFrame, "LSW: Caching Prices")
 		progressBar:Show(0)
 
-		--[[
+--[[
 		for i=1, numSkills do
 			local name, skillType = GetTradeSkillInfo(i)
 
@@ -1270,14 +1270,14 @@ do
 		end
 
 		LSW:ChatMessage("DONE in "..floor((GetTime() - updateIterateStartTime)*1000)/1000 .." seconds")
-		]]
+]]
 
 	end
 
 
 	function LSW:FlushPriceData()
 		priceDataSync = priceDataSync + 1
-		--LSW:UpdateData()
+--		LSW:UpdateData()
 		LSW:CreateTimer("updateData-PriceFlush", 0.05, LSW.UpdateData)
 	end
 
@@ -1299,9 +1299,9 @@ do
 
 			updateInProgress = nil
 
-			--if LSW.parentFrame:IsVisible() then
-			--	LSW:RefreshWindow()
-			--end
+--			if LSW.parentFrame:IsVisible() then
+--				LSW:RefreshWindow()
+--			end
 		end
 	end
 
@@ -1347,7 +1347,7 @@ do
 
 
 	function LSW:GetSkillCost(recipeID)
-		--local rCache = recipeCache[recipeID]
+--		local rCache = recipeCache[recipeID]
 		if recipeCache.results[recipeID] then
 			if periodicTable and LSWConfig.factorSkillUp then
 				local itemID = next(recipeCache.results[recipeID])
@@ -1373,10 +1373,10 @@ do
 		end
 
 		local value, itemFate = 0, "?"
-		--local rCache = recipeCache[recipeID]
-		
+--		local rCache = recipeCache[recipeID]
+
 		if recipeCache.results[recipeID] then
-			--	local itemID = rCache.itemID
+--			local itemID = rCache.itemID
 			local totalValue = 0
 
 			for itemID,numMade in pairs(recipeCache.results[recipeID]) do
@@ -1398,7 +1398,7 @@ do
 					end
 
 					totalValue = totalValue + (value or 0)
-					--	return value, itemFate
+--					return value, itemFate
 				end
 			end
 
@@ -1566,7 +1566,7 @@ do
 		if (buttonValue) then buttonValue:Hide(); end
 		if (buttonLevel) then buttonLevel:Hide(); end
 
-		--	LSW_ChatMessage("Hide "..name);
+	--	LSW_ChatMessage("Hide "..name);
 	end
 
 
@@ -1593,22 +1593,22 @@ do
 			reagentName = "[item:"..itemID.."]"
 		end
 
-		--[[
+--[[
 		if itemID < 0 then
 			reagentName = "Disenchant "..GetItemInfo(itemID)
 			iCache = itemCache[-itemID]
 			itemID = -itemID
 		end
-		]]
-		
+]]
+
 		if iCache.source == "c" then
-			--	LSWTooltip:AddLine(pad..reagentName.." x "..numNeeded)
-			
+--			LSWTooltip:AddLine(pad..reagentName.." x "..numNeeded)
+
 
 
 			local recipeID = iCache.craftCostID
 
-			--	local rCache = recipeCache[recipeID]
+--			local rCache = recipeCache[recipeID]
 			local iterations = math.ceil((numNeeded - (residualMaterials[itemID] or 0))/recipeCache.results[recipeID][itemID])
 
 			if iterations > 0 then
@@ -1620,27 +1620,27 @@ do
 				if recipeID < 0 then
 					recipeName = recipeCache.names[recipeID]
 
-					--	LSWTooltip:AddLine(pad..PROCESS_COLOR_HEX.."["..recipeName.."]".." x "..iterations)
+--					LSWTooltip:AddLine(pad..PROCESS_COLOR_HEX.."["..recipeName.."]".." x "..iterations)
 					LSWTooltip:AddDoubleLine(pad..reagentName.."x"..numNeeded, PROCESS_COLOR_HEX.."["..recipeName.."]".."x"..iterations)
 				else
 					recipeName = GetSpellLink(recipeID)
 
-					--	LSWTooltip:AddLine(pad..recipeName.." x "..iterations)
+--					LSWTooltip:AddLine(pad..recipeName.." x "..iterations)
 					LSWTooltip:AddDoubleLine(pad..reagentName.."x"..numNeeded, recipeName .."x"..iterations)
 				end
 
 
-				--	LSWTooltip:AddDoubleLine(pad..recipeName.." x "..iterations, LSW:FormatMoney((recipeCost - recipeValue) * iterations, true).." ")
-				
+	--			LSWTooltip:AddDoubleLine(pad..recipeName.." x "..iterations, LSW:FormatMoney((recipeCost - recipeValue) * iterations, true).." ")
+
 				for subItem, subNeeded in pairs(recipeCache.reagents[recipeID]) do
 					subTotal = subTotal + CostButton_AddItem(subItem, iterations * subNeeded, level+1, residualMaterials)
-					--	UpdateItemCost(subItem)
-					--	subTotal = subTotal + itemCache[subItem].bestCost * subNeeded * iterations
+--					UpdateItemCost(subItem)
+--					subTotal = subTotal + itemCache[subItem].bestCost * subNeeded * iterations
 				end
 
 				for residualID, numCrafted in pairs(recipeCache.results[recipeID]) do
 					if residualID ~= itemID then
-						--[[
+--[[
 						if LSWConfig.residualPricing == COST_BASIS_RESALE then
 							UpdateItemValue(residualID)
 							residuals = residuals + itemCache[residualID].bestValue * numCrafted * iterations
@@ -1648,7 +1648,7 @@ do
 							UpdateItemCost(residualID)
 							residuals = residuals + itemCache[residualID].bestCost * numCrafted * iterations
 						end
-						]]
+]]
 						residualMaterials[residualID] = (residualMaterials[residualID] or 0) + numCrafted * iterations
 					else
 						residualMaterials[residualID] = (residualMaterials[residualID] or 0) + numCrafted * iterations - numNeeded
@@ -1661,9 +1661,9 @@ do
 			end
 
 			return 0
-			--	if iCache.craftResidual > 0 then
-			--LSWTooltip:AddDoubleLine(pad..PROCESS_COLOR_HEX.."Residual Materials Value", "("..LSW:FormatMoney(residuals, true)..")")
-		--	end
+--			if iCache.craftResidual > 0 then
+--				LSWTooltip:AddDoubleLine(pad..PROCESS_COLOR_HEX.."Residual Materials Value", "("..LSW:FormatMoney(residuals, true)..")")
+--			end
 		else
 			if iCache.BOP then
 				LSWTooltip:AddDoubleLine(pad..reagentName.." x "..numNeeded, BOP_STRING)
@@ -1701,16 +1701,16 @@ do
 				local residualMaterials = {}
 
 
-				--local rCache = recipeCache[recipeID]
-				
+--				local rCache = recipeCache[recipeID]
+
 				if recipeCache.reagents[recipeID] then
 					local costAmount = LSW:GetSkillCost(recipeID)
 
 					for itemID, numNeeded in pairs(recipeCache.reagents[recipeID]) do
 						total = total + CostButton_AddItem(itemID, numNeeded, 1, residualMaterials)
-						--local iCache = itemCache[itemID]
-						
-						--total = total + ((iCache.bestCost or 0) + (iCache.craftResidual or 0)) * numNeeded
+--						local iCache = itemCache[itemID]
+
+--						total = total + ((iCache.bestCost or 0) + (iCache.craftResidual or 0)) * numNeeded
 					end
 				end
 
@@ -1809,8 +1809,8 @@ do
 		if (skillName and skillType ~= "header") then
 			LSWTooltip:ClearLines()
 
-			--	local rCache = recipeCache[recipeID]
-			
+--			local rCache = recipeCache[recipeID]
+
 			if recipeCache.results[recipeID] then
 				for itemID, numMade in pairs(recipeCache.results[recipeID]) do
 					local iCache = itemCache[itemID]
@@ -1833,7 +1833,7 @@ do
 					if LSWConfig.singleColumn then
 						local totalCost = CostButton_OnEnter(button)
 						LSWTooltip:AddLine(" ")
-						--LSWTooltip:AddLine("Result:")
+		--				LSWTooltip:AddLine("Result:")
 						local best = LSW:GetSkillValue(recipeID) or 0
 
 						local bestValue = LSW:FormatMoney(best, true)
@@ -1864,8 +1864,8 @@ do
 
 						if itemID > 0 and recipeCache.results[-itemID] then
 							LSWTooltip:AddDoubleLine("|cff008000Disenchant: ",disenchantValue)
-							--	LSWTooltip:AddLine("|cff008000Disenchant:")
-							
+--							LSWTooltip:AddLine("|cff008000Disenchant:")
+
 							for itemID, count in pairs(recipeCache.results[-itemID]) do
 								UpdateItemValue(itemID)
 								local _, itemLink = GetItemInfo(itemID)
@@ -1927,8 +1927,8 @@ do
 	function LSW:CreateDynamicButtons(id, buttonName)
 
 
-		--LSW_ErrorMessage("creating button "..id);
-		
+	--LSW_ErrorMessage("creating button "..id);
+
 		if buttonValueList[id] then
 			return buttonValueList[id], buttonCostList[id], buttonLevelList[id]
 		end
@@ -2002,11 +2002,11 @@ do
 	}
 
 
-	-- registers support for a ui
-	-- name is the name of the support (for record keeping essentially)
-	-- test is the function used to determine if this ui is present
-	-- init is the function used to initialize
-	-- frame support modules should register with this function at load time
+-- registers support for a ui
+-- name is the name of the support (for record keeping essentially)
+-- test is the function used to determine if this ui is present
+-- init is the function used to initialize
+-- frame support modules should register with this function at load time
 	function LSW:RegisterFrameSupport(name, test, init)
 		local t = {}
 
@@ -2025,11 +2025,11 @@ do
 
 
 
-	-- registers support for an auction module
-	-- name is the name of the support (for record keeping essentially)
-	-- test is the function used to determine if this ui is present
-	-- init is the function used to initialize
-	-- auction support modules should register with this function at load time
+-- registers support for an auction module
+-- name is the name of the support (for record keeping essentially)
+-- test is the function used to determine if this ui is present
+-- init is the function used to initialize
+-- auction support modules should register with this function at load time
 	function LSW:RegisterPricingSupport(name, test, init)
 		local t = {}
 
@@ -2037,7 +2037,7 @@ do
 		t.Test = test
 		t.Init = init
 
-		--LSW:ChatMessage("registering pricing module "..name);
+--LSW:ChatMessage("registering pricing module "..name);
 		table.insert(pricingSupportList, t)
 
 		if LSW.initialized then
@@ -2056,7 +2056,7 @@ do
 	local function InitializeFrameSupport()
 		for i = 1, #frameSupportList do
 			if frameSupportList[i].Test(i) then
-				--LSW:ChatMessage("LSW: Initializing "..frameSupportList[i].name.." frame support")
+--				LSW:ChatMessage("LSW: Initializing "..frameSupportList[i].name.." frame support")
 				frameSupportList[i].Init(i)
 				break
 			end
@@ -2068,9 +2068,9 @@ do
 		SetSecondaryLevels()
 
 		for i = 1, #pricingSupportList do
-			--LSW:ChatMessage("LSW: Checking "..pricingSupportList[i].name.." pricing support")
+--		LSW:ChatMessage("LSW: Checking "..pricingSupportList[i].name.." pricing support")
 			if pricingSupportList[i].Test(i) then
-				--LSW:ChatMessage("LSW: Initializing "..pricingSupportList[i].name.." pricing support")
+--				LSW:ChatMessage("LSW: Initializing "..pricingSupportList[i].name.." pricing support")
 				supportMenuList[pricingSupportList[i].name] = pricingSupportList[i].Init(i)
 			end
 		end
@@ -2087,9 +2087,9 @@ do
 				periodicTable = LibStub:GetLibrary("LibPeriodicTable-3.1", true)
 			end
 
-			--	LSW:ItemTableViewInit()
-			--	LSW:RecipeTableViewInit()
-			
+--			LSW:ItemTableViewInit()
+--			LSW:RecipeTableViewInit()
+
 			LSW:ChatMessage(LSW_VERSION_LONG)
 
 			InitializeFrameSupport()
@@ -2192,7 +2192,7 @@ do
 		end
 	end)
 
-	LSW.UpdateRecipePrices = UpdateRecipePrices
+
 	LSW.UpdateItemCost = UpdateItemCost
 	LSW.UpdateItemValue = UpdateItemValue
 	LSW.UpdateSingleRecipePrice = UpdateSingleRecipePrice

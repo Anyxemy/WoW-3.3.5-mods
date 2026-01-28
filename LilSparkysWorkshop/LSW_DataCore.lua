@@ -4,14 +4,23 @@ do  -- 1. HEADER
     -- LSW_dataCore.lua (Sirus 2026)  v0.0.1
 
     ---@class DataCore
+    ---@field Init fun(self: DataCore)
     ---@field InitInterface fun(self: DataCore) Создает кнопку и чекер в ARL
-    ---@field UpdateAllRdbPrices fun(self: DataCore) Пересчитывает золото в Rdb
-    ---@field GetFormattedUpdateAge fun(self: DataCore): string Возвращает возраст цен
+    ---@field PrepareQueue fun(self: DataCore)
+    ---@field GetScanner fun(self: DataCore)
+    ---@field ScanStep fun(self: DataCore)
+    ---@field Processor fun(self: DataCore) Организует обработку очереди сканирования рецептов
+    ---@field RdbFlush fun(self: DataCore) Очистка базы
+    ---@field UpdateRdbSkills fun(self: DataCore) Сканирование и обновление рецептов в базе
+    ---@field UpdateRdbPrices fun(self: DataCore) Обновление цен в базе
+    ---@field flush boolean       -- перезапись имеющихся данных
+    ---@field Queue table
+    ---@field CurrentIndex number
+    ---@field wdc number    -- WatchDogCounter
+    ---@field prof string -- текущая профессия
     LSW_DataCore = LSW_DataCore or {}     -- Создаем уникальный глобальный объект
 
     ---@class RdbEntry
-    ---@field spellCost number  Сумма реагентов
-    ---@field spellValue number Цена продажи результата
     ---@field itemID number     ID предмета результата
     ---@field reagents table < number, number > [itemID] = количество
 
@@ -32,24 +41,23 @@ end -- ===== header =========================
 
 local DataCore = LSW_DataCore         -- Локальная ссылка для удобства внутри файла
 local wdcLim = 2        -- Watch Dog Counter
-local debug = true
+local LSW_DEBUG = false
 --local reagentsLoc = SPELL_REAGENTS:match("([^%s%p]+)")  -- Очищаем от всего, кроме букв (для русского и английского)
-local reagentsLoc = SPELL_REAGENTS:gsub("[%s%p|n]", "") -- Удаляет пробелы, знаки препинания и переносы
+local reagentsLoc = SPELL_REAGENTS:gsub("[|n]", "") -- Удаляет пробелы, знаки препинания и переносы
 local ARL = AckisRecipeList
 
 -------------------------------------------------------------------------
+
 local function dprint(...)
-    if debug then print("|cff00ffffLSW-CORE:|r", ...) end
+    if LSW_DEBUG then print("|cff00ffffLSW-CORE:|r", ...) end
 end
 
 function Rtest(t)
     dprint("  Rdb[3275].ItemID " .. tostring(Rdb[t].itemID))
 end
 
-local function RdbInit()
-    Rdb = Rdb or {}
-    Rdb.Meta = Rdb.Meta or { lastUpdate = 0, autoSync = true }
-    Rdb.Meta.Entries = Rdb.Meta.Entries or {}
+function DataCore:Rdbflush()
+    Rdb = {}
 end
 
 --- Выводит структуру таблицы в чат с учетом вложенности
@@ -135,151 +143,106 @@ local function GetReagentsFromSkillet(recipeID)
     end
 end
 
--- не используется
-function DataCore:GetPrice(itemID)
-    local aucPrice = LSW:GetAuctionPrice(itemID) or 0
-    -- Получаем цену продажи NPC
-    local _, _, _, _, _, _, _, _, _, _, sellPrice = GetItemInfo(itemID)
-    local vendorBuyPrice = (sellPrice or 0) * 4 -- Цена покупки у вендора
-    -- Приоритет: Аукцион, если цена адекватна. Иначе - вендор.
-    -- (Здесь можно добавить логику, что если аукцион в 10 раз дороже вендора, игнорируем аук)
-    if aucPrice > 0 and aucPrice < (vendorBuyPrice * 10) then
-        return aucPrice
+
+--- ==========================================
+--#region Prices 2. ПОЛУЧЕНИЕ ЦЕНЫ
+--- ==========================================
+
+--- получение цен предмета и реагентов по recipe_id (запрос из arl)
+--- @param recipe_id number skill_id
+--- @return string rStr возврат форматированной строки цен
+function GetCost(recipe_id)
+    local rID = recipe_id
+    if not rID then dprint("No recipeID for GetCost") return "---" end
+    local cost, value, price, hilight = 0, 0, 0, false
+    local sCost, sValue, iName, rName, rStr = "-", "-", "no item name", "no reagent name", "---"
+    local s
+    local sName, _ = GetSpellInfo(rID) or "No Skill name"
+    dprint("--- Рецепт:  " .. sName .. " --- id " .. rID)
+
+    -- 1. VALUE - ЦЕНА РЕЗУЛЬТАТА УМЕНИЯ - ПРЕДМЕТ ('a' - auction 'v' - vendor)
+
+    -- LSW:SkillCost LSW:SkillValue НЕ ПОКАЗЫВАЮТ НЕИЗВЕСТНЫЕ РЕЦЕПТЫ!
+    local itemID = Rdb[rID] and Rdb[rID].itemID or ARL:GetRecipeData(rID, "item_id")
+    iName, _ = GetItemInfo(itemID) or "Name not found", ""
+
+    value, s = LSW:GetSkillValue(rID) or 0, ''
+    dprint(iName .. "  GetSkillValue - " .. value, s .. "   id ".. itemID)
+
+    if value <= 0 and itemID and LSW then
+        value, s = LSW:GetItemCost(itemID) or 0, ""
+        dprint(iName .. "  GetItemCost - " .. value, s .. "   id ".. itemID)
+    end
+
+    -- 2. COST - ЦЕНА ИСПОЛЬЗОВАНИЯ УМЕНИЯ - РЕАГЕНТЫ, СЕБЕСТОИМОСТЬ
+    cost = LSW:GetSkillCost(rID) or 0
+
+    if cost <= 0 and LSW and Rdb and Rdb[rID] and Rdb[rID].reagents then
+        for k, v in pairs(Rdb[rID].reagents) do     -- берем реагенты из базы
+            price = (LSW:GetItemCost(k) or 0)
+            cost = cost + price * v        -- складываем их цены
+            rName, _ = GetItemInfo(k) or "Reagent name not found", ""
+            dprint("  " .. rName .. " - " .. cost .. "   id ".. k)
+        end
     else
-        return vendorBuyPrice
+        if cost > 0 then dprint(sName .. "  GetSkillCost - " .. cost .. "   id ".. rID) end
     end
+
+    if value > cost then hilight = true end
+    sValue = LSW:FormatMoney(value, hilight) or "-"
+    sCost = LSW:FormatMoney(cost, hilight) or "-"
+    rStr = string.format("%-4s%-1s %-4s", sValue, s, sCost)
+    return rStr
 end
 
+--#endregion
 
 -- ==========================================
--- 2. ПОЛУЧЕНИЕ ЦЕНЫ, ОБНОВЛЕНИЕ ЦЕН БД
--- ==========================================
-
--- не используется
-function GetRecipeCostAnywhere(rID, rNbr)
-    local recipeID = rID
-    if not recipeID then return 0 end
-    -- 1. ЦЕНА ПРЕДМЕТА (BoP - Best of price Auction, Vendor, Disenchant)
-    local itemID = ARL:GetRecipeData(recipeID, "item_id")
-    if itemID then
-        itemCost = (LSW.GetItemCost and LSW:GetItemCost(itemID)) or 0
---        dprint("#" .. rNbr .. "   GetItemCost - " .. itemCost)
-end
-
--- 2. СЕБЕСТОИМОСТЬ (РЕАГЕНТЫ)
--- Проверка 1: Родной метод LSW (для известных)
-local cost = (LSW and LSW.GetSkillCost and LSW:GetSkillCost(recipeID)) or 0
---    dprint("#" .. rNbr .. "   GetSkillCost - " .. cost)
-if cost > 0 then return itemCost, cost end
-
-cost = (LSW.GetSkillCost and LSW:GetSkillValue(recipeID)) or 0
---    dprint("#" .. rNbr .. "   GetSkillValue - " .. cost)
-if cost > 0 then return itemCost, cost end
-
--- Проверка 2: Ваша накопленная база Rdb
-cost = GetCostFromRdb(recipeID) or 0
---    dprint("#" .. rNbr .. "   GetReagentsFromRdb - " .. cost)
-if cost > 0 then return itemCost, cost end
-
--- Проверка 3: Если в вашей базе нет, лезем в SkilletDB
---    dprint("   cost " .. cost .. "   SkilletDB " .. tostring(SkilletDB) .. "   # " .. #SkilletDB)
-if (not cost or cost == 0) and SkilletDB then
-    --        dprint("   if not cost and SkilletDB   ok")
-    local skilletData = GetReagentsFromSkillet(recipeID)
-    --        dprint("#" .. rNbr .. "   GetReagentsFromSkillet (data) - " .. tostring(skilletData))
-    if skilletData then
-        for id, count in pairs(skilletData) do
-            local price = LSW:GetItemCost(id) or 0
-            cost = cost + (price * count)
-            --                dprint("#" .. rNbr .. "   GetReagentsFromSkillet (cost) - " .. cost)
-        end
-    end
-    if cost > 0 then return itemCost, cost end
-end
-return 0
-end
-
---  обновление цен бд, предполагается запуск по закрытию окна аукциона (хук) + таймер 6+ часов
-function DataCore:UpdateAllRdbPrices()
-    local sum = 0
-    if not LSW or not LSW.itemCache then 
-        print("|cffff0000[LSW-Bridge]:|r Ошибка: itemCache не найден!")
-        return 
-    end
-    for id, data in pairs(Rdb) do
-        sum = 0
-        dprint("for ".. tostring(id), tostring(data) .. " in pairs(" .. tostring(Rdb) .. ") do")
-        --if id then dprint("   предмет " .. type(id) .. "   data " .. type(data)) end
-        if type(id) == "number" and data.reagents then
-            local cost = 0
-            for rID, count in pairs(data.reagents) do
-                --dprint("rID " .. rID .. "   count ".. count)
-                LSW.UpdateItemValue(rID) LSW.UpdateItemCost(rID)
-                if LSWPrices.cost[rID] or LSWPrices.value[rID] then -- тут цена
-                    cost = LSWPrices.value[rID] or 0
-                    cost2 = LSWPrices.cost[rID] or 0
-                    sum = sum + ((cost > cost2) and cost or cost2)
-                    local name = GetItemInfo(rID)
-                    if id % 30 == 1 then dprint(name, rID .. "   цена " .. cost) end
-                else
-                    dprint("  Реагента нет!")
-                end
-            end
-            data.spellCost = cost
-
-            if data.itemID then            -- Обновляем цену предмета
-                LSW.UpdateItemValue(data.itemID) LSW.UpdateItemCost(data.itemID)
-                cost = LSWPrices.value[data.itemID] or 0
-                cost2 = LSWPrices.cost[data.itemID] or 0
-                Rdb[id].spellValue = (cost > cost2) and cost or cost2
-                dprint("Цена предмета " .. Rdb[id].spellValue)
-                local name = GetItemInfo(data.itemID)
-                if id % 30 == 1 then dprint(name, data.itemID .. "  цена " .. Rdb[id].spellValue) end
-            else
-                dprint("  Предмета нет!")
-            end
-        end
-    end
-    Rdb.Meta.lastUpdate = time()
-    print("|cff00ff00[LSW-Bridge]:|r База Rdb успешно синхронизирована (" .. time() .. ")")
-end
-
--- ==========================================
--- СКАНИРОВАНИЕ И НАПОЛНЕНИЕ БАЗЫ
+--#region Update Rdb  3. ОБНОВЛЕНИЕ И НАПОЛНЕНИЕ БАЗЫ
 -- ==========================================
 -- Сканируем базу рецептов AckisRecipeList, из фрейма, все рецепты выбранной профессии
 -- через тултип в котором есть все реагенты. "Frame" Processor, PrepareQueue(), ScanStep(), GetScanner()
 -- делается один раз на каждую профессию, далее не требуется
-DataCore.purge = true
-DataCore.Queue = {}
-DataCore.CurrentIndex = 1
-DataCore.Wdc = 0
 
+---Обновление базы умений при открытом окне AckisRecipeList
+function DataCore:UpdateRdbSkills()
+    DataCore.flush = true
+    DataCore.Queue = {}
+    DataCore.CurrentIndex = 1
+    DataCore.wdc = 0
+    DataCore.prof = ""
+    DataCore:PrepareQueue()
+    DataCore.Processor()
+    DataCore.Proc:Show()    -- запуск обработчика (фрейм)
+end
 
 --- создание очереди рецептов, данных о которых нет в базе
 function DataCore:PrepareQueue()
-    RdbInit()
     if not ARL or not ARL.Frame then dprint("Ошибка! ARL еще не загружен.|r") return end
-    local entries = ARL.Frame.list_frame.entries        -- количество записей ARL
+    local entrCount = 0
+    local entries = ARL.Frame.list_frame.entries        -- список рецептов ARL
+    for i = 1, #entries do if entries[i].type == "header" then entrCount = entrCount + 1 end end
+    dprint("кол-во умений в списке АРЛ: " .. entrCount .. "   строк всего " .. #entries)
     local prof = ARL:GetRecipeData(entries[1].recipe_id, "profession")    -- профессия
+    DataCore.prof = prof
+
     -- обнуляем кол-во записей в базе для этой профессии, если надо
-    if not Rdb.Meta.Entries[prof] or DataCore.purge then Rdb.Meta.Entries[prof] = 0 end 
+    if prof and not Rdb.Meta.Entries[prof] or DataCore.flush then Rdb.Meta.Entries[prof] = 0 end 
     self.Queue = {}    -- Очищаем очередь перед заполнением
-    local count_new = 0
-    local count_total = 0
+    local count_new, count_total = 0, 0
     -- сверяем количество рецептов в списке АРЛ с соответствующим значением в базе
     local str = string.format("%s рецептов в Rdb %d   в ARL %d", prof, Rdb.Meta.Entries[prof], #entries)
-    if Rdb.Meta.Entries[prof] > #entries and not DataCore.purge then
+    if Rdb.Meta.Entries[prof] > #entries and not DataCore.flush then
         print(str .. " Обновление не требуется") return
     end
     print(str .. " создание очереди")
 
     -- Проходим по текущим записям ARL
-    for i, entry in pairs(entries) do
-        local spellID = entry["recipe_id"]
+    for i = 1, #entries do
+        local spellID = entries[i].recipe_id
 
         -- Если spellID нет в базе или принудительное обновление
-        if not Rdb[spellID] or DataCore.purge then
+        if spellID and entries[i].type == "header" and (not Rdb[spellID] or DataCore.flush) then
             Rdb[spellID] = {}
             table.insert(self.Queue, spellID)
             count_total = count_total + 1
@@ -308,10 +271,8 @@ end
 function DataCore:ScanStep()
     local spellID = self.Queue[self.CurrentIndex]
     if not spellID then return "COMPLETED" end
-    dprint("Scan Queue " .. tostring(self.CurrentIndex) .. "  spellID " .. tostring(spellID))
-
-    local entries = ARL.Frame.list_frame.entries        -- количество записей ARL
-    local prof = ARL:GetRecipeData(entries[1].recipe_id, "profession")    -- профессия
+    sSpell, _ = GetSpellInfo(spellID) or "Unknown Spell", ""
+    dprint("Scan Queue " .. tostring(self.CurrentIndex) .. sSpell .. "  id " .. tostring(spellID))
 
     -- Попытка получить данные
     local link = GetSpellLink(spellID)
@@ -320,97 +281,97 @@ function DataCore:ScanStep()
 
     -- тултип умения
     local scanner = self:GetScanner()   -- Ваш скрытый тултип
-    if self.Wdc == 0 then               -- если умение новое, активируем тултип
+    if self.wdc == 0 then               -- если умение новое, активируем тултип
         scanner:SetHyperlink(link)
     end
 
-    -- Парсинг 2 строки тултипа на предмет реагентов
-    local lineText = _G["DataCoreScannerTooltipTextLeft2"]:GetText() or ""
-
-    if lineText:find(reagentsLoc) then -- if lineText:find("Реагенты:") then
-        Rdb[spellID] = {} Rdb[spellID] = { reagents = {} }
-        Rdb.Meta.Entries[prof] = Rdb.Meta.Entries[prof] + 1
-        Rdb[spellID].itemID = ARL:GetRecipeData(spellID, "item_id")
-        dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
-        local data = lineText:match("Реагенты:%s*(.*)")     -- Извлекаем всё после "Реагенты:"
-        --dprint("0 " .. data)
-        if data then
-            ----dprint("1 " .. data)
+    -- Парсинг строк тултипа на предмет реагентов
+    tooltip = _G["DataCoreScannerTooltip"]
+    lines = tooltip:NumLines()
+    for i = 1, lines do
+        _, line = _G["DataCoreScannerTooltipTextLeft"..i]:GetText():match("("..reagentsLoc..")(.*)")
+        if line then
+            Rdb[spellID] = { skillCost, skillValue, itemID, reagents = {} }
+            dprint(Rdb.Meta.Entries[DataCore.prof])
+            Rdb.Meta.Entries[DataCore.prof] = Rdb.Meta.Entries[DataCore.prof] + 1
+            Rdb[spellID].itemID = ARL:GetRecipeData(spellID, "item_id")
+            --dprint(string.format("str %d  New Item: %s", i, GetItemInfo(Rdb[spellID].itemID)))
             -- Чистим мусор: цвета и невидимые переносы [N]
-            data = data:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%c", " "):gsub("|n", "")
-            --dprint("1 " .. data)
+            line = line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%c", " "):gsub("|n", "")
+            dprint("1 " .. line)
 
-            for part in data:gmatch("[^,]+") do
-                --dprint("2 " .. part)
+            for reag in line:gmatch("[^,]+") do
+                dprint("2 " .. reag)
 
-                part = part:trim()
+                reag = reag:trim()
                 -- 1. Сначала пробуем вытащить имя и число из скобок: "Имя (2)"
-                local name, count = part:match("^(.-)%s*%(%d+%)")
-                --dprint("name " .. tostring(name) .. "  count " .. tostring(count))
-                local cValue = part:match("%((%d+)%)") or 1
-                --dprint("cValue " .. tostring(cValue))
+                local name, count = reag:match("^(.-)%s*%(%d+%)")
+                count = reag:match("%((%d+)%)") or 1
 
                 -- 2. Если скобок не было, значит это "Имя" (кол-во 1) или "Имя 2"
                 if not name then
-                    name, cValue = part:match("^(.-)%s*(%d*)$")
-                    cValue = tonumber(cValue) or 1
-                    --dprint("name " .. name .. "  cValue " .. cValue)
+                    name = reag
                 end
-
                 name = name:trim()
-                -- Теперь GetItemInfo точно получит "Сребролист", а не "Сребролист (2)"
-                local _, itemLink = GetItemInfo(name) 
-                    --dprint("GetItemInfo(" .. name .. ") " .. tostring(itemLink) .. "   кол-во " .. tostring(cValue))
-        dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
-                    if itemLink then
-                        local itemID = itemLink:match("item:(%d+)")
-                        dprint("reagent " .. itemID)
-                        Rdb[spellID].reagents[tonumber(itemID)] = tonumber(cValue) or 1
+                if not name then dprint("reagent name no found (str 320)") return end
 
-                        self.Wdc = 100 -- Флаг успеха
+                dprint("name " .. name .. "  count " .. tostring(count))
+                -- Теперь GetItemInfo точно получит "Сребролист", а не "Сребролист (2)"
+                local nazv, itemLink = GetItemInfo(name)-- or "no name", nil
+                dprint("324 ", tostring(nazv), "   link ", tostring(itemLink), "   кол-во ", tostring(count))
+                if itemLink then
+                    local itemID = tonumber(itemLink:match("item:(%d+)"))
+                    dprint("reagent " .. tostring(itemID))
+                    Rdb[spellID].reagents[itemID] = tonumber(count) or 1
+                    local col = Rdb[spellID].reagents[itemID] or 0
+                    dprint("Rdb itemID col-vo ", col)
+                    dprint(tostring(nazv) .. " (Rdb) id " .. tostring(itemID) .. "   count " .. tostring(Rdb[spellID].reagents[itemID]))
+
+                    self.wdc = 100 -- Флаг успеха
+                else --dprint("No itemLink " .. name) return end
+                    if self.wdc >= wdcLim then
+                        self.wdc = 0
+                        dprint("  SCAN FALED")
+                        return "NEXT"
                     else
-                        if self.Wdc >= wdcLim * cValue then
-                            self.Wdc = 0
-                            dprint("  SCAN FALED")
-                            return "NEXT"
-                        else
-                        self.Wdc = self.Wdc + 1
-                        dprint("WDC ITEM WAIT " .. self.Wdc)
+                        self.wdc = self.wdc + 1
+                        dprint("WDC REAGENT WAIT " .. self.wdc)
                         return "WAIT"  -- Если предмета нет в кэше, запрашиваем и ждем тик
                     end
                 end
             end
         end
     end
-    dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
+    --dprint("  New Item: " .. tostring(Rdb[spellID].itemID))
 
     -- 3. Несколько попыток если данные не получены
-    if self.Wdc >= wdcLim then       -- WatchDogCounter
-        if self.Wdc < 100 then dprint("  SCAN FALED") else dprint("  SCAN SUCCESS") end
-        self.Wdc = 0
+    if self.wdc >= wdcLim then       -- WatchDogCounter
+        if self.wdc < 100 then dprint("  SCAN FALED") else dprint("  SCAN SUCCESS") end
+        self.wdc = 0
         return "NEXT"
     else
-        self.Wdc = self.Wdc + 1
-        dprint("WDC WAIT " .. self.Wdc)
+        self.wdc = self.wdc + 1
+        dprint("WDC WAIT " .. self.wdc)
         return "WAIT"
     end
 end
 
 
--- Этот Невидимый Фрейм-пульс будет обрабатывать логику ожидания.
--- Если сервер «молчит» (вернул nil), контроллер просто подождет следующего кадра, не блокируя игру.
-DataCore.Processor = CreateFrame("Frame")
+function DataCore:Processor()
+    -- Этот Невидимый Фрейм-пульс будет обрабатывать логику ожидания.
+    -- Если сервер «молчит» (вернул nil), контроллер просто подождет следующего кадра, не блокируя игру.
+    DataCore.Proc = CreateFrame("Frame")
     -- Создаем визуальную строку на фрейме Processor
-    DataCore.Processor.text = DataCore.Processor:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    DataCore.Processor.text:SetPoint("CENTER", UIParent, "CENTER", 0, 150) -- Центр экрана
+    DataCore.Proc.text = DataCore.Proc:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    DataCore.Proc.text:SetPoint("CENTER", UIParent, "CENTER", 0, 150) -- Центр экрана
 
-    DataCore.Processor:Hide() -- По умолчанию выключен
-    DataCore.Processor:SetScript("OnUpdate", function(self, elapsed)
+    DataCore.Proc:Hide() -- По умолчанию выключен
+    DataCore.Proc:SetScript("OnUpdate", function(self, elapsed)
         local spellID = DataCore.Queue[DataCore.CurrentIndex] or "DONE"
         self.text:SetText(string.format("Scan: %d/%d | ID: %s", DataCore.CurrentIndex, #DataCore.Queue, tostring(spellID)))
         -- Ограничитель скорости (раз в 0.05 сек), чтобы не спамить в пустую
         self.timer = (self.timer or 0) + elapsed
-        if self.timer < 0.1 then return end
+        if self.timer < 0.02 then return end
         self.timer = 0
 
         local status = DataCore:ScanStep()
@@ -430,42 +391,16 @@ DataCore.Processor = CreateFrame("Frame")
             -- Просто пропускаем тик, ждем ответа сервера
         end
     end)
-
-
-function SyncRdbWithLSW()
-    -- Проверяем, что LSW и его кэш доступны
-    if not LSW or not LSW.recipeCache or not LSW.recipeCache.reagents then 
-        return 
-    end
-
-    local count = 0
-    local lswReagents = LSW.recipeCache.reagents
-
-    -- Проходим по всем рецептам, которые LSW просканировал в текущем окне
-    for spellID, reagents_tbl in pairs(lswReagents) do
-        -- Если этого рецепта еще нет в нашей постоянной базе Rdb
-        if spellID and not Rdb[spellID] then
-            local tempReagents = {}
-            local hasReagents = false
-
-            for itemID, quantity in pairs(reagents_tbl) do
-                tempReagents[itemID] = quantity
-                hasReagents = true
-            end
-
-            if hasReagents then
-                Rdb[spellID] = tempReagents
-                count = count + 1
-                -- dprint("Синхронизирован рецепт: " .. spellID)
-            end
-        end
-    end
-
-    if count > 0 then
-        print("База Rdb пополнена из кэша LSW на " .. count .. " рецептов.")
-    end
 end
 
+--
+function onUpdateARL()
+    -- Проверяем, что ARL и его кэш доступны
+    if not ARL or not ARL.Frame or not ARL.Frame.list_frame then
+        return
+    end
+
+end
 
 -- ==========================================
 -- 3. СОБЫТИЯ И ХУКИ
@@ -488,20 +423,20 @@ frame:SetScript("OnEvent", function(self, event)
 end)
 
 
---[[-- Подписываемся на событие открытие окна профессии
+-- Подписываемся на событие открытие окна профессии
 local CoreFrame = CreateFrame("Frame")
-CoreFrame:RegisterEvent("TRADE_SKILL_SHOW")
---CoreFrame:RegisterEvent("TRADE_SKILL_UPDATE")
+CoreFrame:RegisterEvent("ARL_MainFrame_SHOW")
+CoreFrame:RegisterEvent("ARL_UPDATE")
     CoreFrame:SetScript("OnEvent", function(self, event)
     -- Сканируем через 0.5 сек после открытия, чтобы данные прогрузились
-    C_Timer:After(0.5, SyncRdbWithLSW)
+    C_Timer:After(0.5, onUpdateARL)
 end)
 
-
+-- таймер на 6 часов
 if Rdb.Meta.autoSync and (GetTime() - Rdb.Meta.lastUpdate > 21600) then
-    LSW.UpdateRecipePrices()
+--    LSW.UpdateRecipePrices()
     Rdb.Meta.lastUpdate = GetTime()
-end]]
+end
 
 
 -- ==========================================
@@ -523,63 +458,63 @@ function DataCore:GetFormattedUpdateAge()
     end
 end
 
-function DataCore:InitInterface()
-    local parent = _G["ARL_MainPanel"]
-    if not parent or LSW_UpBtn then return end
 
-    -- Кнопка "up Rdb"
-    local btn = CreateFrame("Button", "LSW_UpBtn", parent, "UIPanelButtonTemplate")
-    btn:SetSize(50, 20)
-    btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -50, -37)
+function DataCore:Init()
+    Rdb = Rdb or {}
+    Rdb.Meta = Rdb.Meta or { lastUpdate = 0, autoSync = true }
+    Rdb.Meta.Entries = Rdb.Meta.Entries or {}
+end
+
+function DataCore:InitInterface()
+local parent = _G["ARL_MainPanel"]
+if not parent or LSW_UpBtn then return end
+
+    -- Кнопка "upRdb"
+    local btn = CreateFrame("Button", "upRdb", parent, "UIPanelButtonTemplate")
+    btn:SetSize(40, 17)
+    btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -170, -50)
     btn:SetText("updb")
 
     -- Тултип с таймером
     btn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Обновление цен Rdb")
+        GameTooltip:SetText("Обновление умений Rdb")
         GameTooltip:AddLine("Последнее: " .. DataCore:GetFormattedUpdateAge(), 1, 1, 1)
         GameTooltip:Show()
-    end)
+    end)    
     btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     -- Логика клика (КД 1 мин)
     btn:SetScript("OnClick", function()
         if (GetTime() - (self.lastClick or 0)) > 60 then
             self.lastClick = GetTime()
-            LSW.UpdateRecipePrices() -- Запуск глобального кэша LSW
-            print("|cff00ff00[LSW-Bridge]:|r Запущен пересчет цен...")
+            DataCore.UpdateRdbSkills() -- Запуск обновления базы
+            print("|cff00ff00[LSW-Bridge]:|r Запущено обновление бызы рецептов ...")
         else
             print("|cff00ff00[LSW-Bridge]:|r Подождите 1 минуту.")
-        end
-    end)
+        end    
+    end)    
 
     -- Чекер "auto"
     local chk = CreateFrame("CheckButton", "LSW_AutoSyncCheck", parent, "UICheckButtonTemplate")
     chk:SetSize(24, 24)
     chk:SetPoint("RIGHT", btn, "LEFT", -5, 0)
     _G[chk:GetName() .. "Text"]:SetText("auto")
-    -- Безопасное получение значения из глобальной таблицы
-    local isAutoSync = (Rdb and Rdb.Meta and Rdb.Meta.autoSync) or false
-    chk:SetChecked(isAutoSync)
-    --chk:SetChecked(Rdb.Meta.autoSync)
+
+    -- Установка значения из глобальной таблицы
+    chk:SetChecked(Rdb.Meta.autoSync)
 
     chk:SetScript("OnClick", function(self)
-        if not Rdb.Meta then Rdb.Meta = {} end -- Доп. защита
         Rdb.Meta.autoSync = self:GetChecked()
-    end)
-    --chk:SetScript("OnClick", function(self)
-    --    Rdb.Meta.autoSync = self:GetChecked()
-    --end)
-end
+    end)    
+end    
 
 
 -- Инициализация при загрузке
 local startupFrame = CreateFrame("Frame")
 startupFrame:RegisterEvent("PLAYER_LOGIN")
 startupFrame:SetScript("OnEvent", function()
-    if Rdb.Meta then dprint("Rdb.Meta before ok") else dprint("Rdb.Meta before NOT ok") end
-    RdbInit()
-    if Rdb.Meta then dprint("Rdb.Meta after ok") else dprint("Rdb.Meta after NOT ok") end
+    LSW_DataCore:Init()
     -- 1. Создаем интерфейс через глобальный объект
     if LSW_DataCore and LSW_DataCore.InitInterface then
         LSW_DataCore:InitInterface()

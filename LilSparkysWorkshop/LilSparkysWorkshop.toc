@@ -4,7 +4,7 @@
 ## RequiredDeps: AckisRecipeList
 ## OptionalDeps: Auctioneer, Auc-Advanced, Enchantrix, AdvancedTradeSkillWindow, Informant, KC_Items, Skillet, SellFish, ItemPriceTooltip, Valuation, ItemDataCache, LibPeriodicTable-3.1, DoubleWideTradeSkill, AuctionMaster, AuctionLite, Auctionator, AckisRecipeList
 ## LoadOnDemand: 0
-## SavedVariables: LSWConfig,LSWPrices,Rdb
+## SavedVariables: LSWConfig,LSWPrices,Rdb, RdbMeta
 ## SavedVariablesPerCharacter:
 ## Notes: Provides Auction-derived prices for Trade Skills
 ## Author: lilsparky

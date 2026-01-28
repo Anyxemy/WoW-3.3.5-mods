@@ -40,34 +40,34 @@ local function LSW_UpdateARL()
 
         -- data.recipe_id — это ID заклинания (spellID)
         if btn:IsVisible() and data and data.recipe_id and data.type == "header" then
-            local spellID = data.recipe_id
-            --local itemCost, skillCost = GetRecipeCostAnywhere(spellID, i)    -- rID - recipe, i - recipe list position
-            -- Вместо вызова тяжелой функции GetRecipeCostAnywhere
-            local cached = Rdb[spellID]
-            if cached and cached.spellCost then
-                local skillCost = cached.spellCost
-                local itemCost = cached.spellValue -- Заранее сохраненный BOP
-                -- ... форматирование и SetText ...
-                if itemCost and itemCost > 0 or skillCost and skillCost > 0 then
-                    local mktStr = GetFormattedPrice(itemCost)
-                    local regStr = GetFormattedPrice(skillCost)
+            --local spellID = data.recipe_id
+            ----local itemCost, skillCost = GetRecipeCostAnywhere(spellID, i)    -- rID - recipe, i - recipe list position
+            --local cached = Rdb[spellID]         -- Вместо вызова тяжелой функции GetRecipeCostAnywhere
+            --if cached and cached.spellCost then
+            --    local skillCost = cached.spellCost
+            --    local itemCost = cached.spellValue -- Заранее сохраненный BOP
+            --    -- ... форматирование и SetText ...
+            --    if itemCost and itemCost > 0 or skillCost and skillCost > 0 then
+            --        local mktStr = GetFormattedPrice(itemCost)
+            --        local regStr = GetFormattedPrice(skillCost)
 
-                    -- Подсветка профитности (опционально)
-                    local color = "|cffffffff"
-                    if (itemCost and itemCost > 0) and (skillCost and skillCost > 0) then
-                        if tonumber(itemCost) > tonumber(skillCost) then color = "|cff00ff00" end -- Профит
-                        if tonumber(itemCost) < tonumber(skillCost) then color = "|cffff0000" end -- Убыток
-                    end
+            --        -- Подсветка профитности (опционально)
+            --        local color = "|cffffffff"
+            --        if (itemCost and itemCost > 0) and (skillCost and skillCost > 0) then
+            --            if tonumber(itemCost) > tonumber(skillCost) then color = "|cff00ff00" end -- Профит
+            --            if tonumber(itemCost) < tonumber(skillCost) then color = "|cffff0000" end -- Убыток
+            --        end
 
-                    btn.lswText:SetText(string.format("%-5s%-5s|r | |cffaaaaaa%s|r", color, mktStr, regStr))
+                    btn.lswText:SetText(GetCost(data.recipe_id) or "---") --string.format("%-5s%-5s|r | |cffaaaaaa%s|r", color, mktStr, regStr))
                     btn.lswText:Show()
-                end
+                    print(btn.lswText)
+            --    end
             else
                 -- Если данных еще нет в Rdb, запускаем разовый расчет (не в цикле скролла!)
                 -- Или просто пишем "...", пока Processor не доберется до этого ID
                 btn.lswText:SetText("...") 
             end
-        end
+        --end
     end
 end
 
