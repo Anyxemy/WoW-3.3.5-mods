@@ -2,7 +2,7 @@
 Теперь стомиость крафта видна и для неизученных рецептов в окне AckisRecipeList.
 ![AckisRecipeList wow 3.3.5+](screenshots/LSW_DataCore_2026-01-30_20_11_01.png)
 <p align="center">
-  <img src="screenshots/LSW_DataCore_2026-01-30_20_11_01.png" width="600" title="LSW-ARL Bridge in action">
+  <img src="./Screenshots/LSW_DataCore_2026-01-30_20_11_01.png" width="600" title="LSW-ARL Bridge in action">
 </p>
 Показ цен рецептов (предмета и стоимость крафта) в окне профессий и мода ARL.
 Измененный мод LilSparkysWorkshop https://github.com/laytya/LilSparkysWorkshop-vanilla v2.0.1 для WoW версии 3.3.5+ сервера Sirus.
