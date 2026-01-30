@@ -1,6 +1,5 @@
 
 Теперь стомиость крафта видна и для неизученных рецептов в окне AckisRecipeList.
-![AckisRecipeList wow 3.3.5+](screenshots/LSW_DataCore_2026-01-30_20_11_01.png)
 <p align="center">
   <img src="./Screenshots/LSW_DataCore_2026-01-30_20_11_01.png" width="600" title="LSW-ARL Bridge in action">
 </p>
