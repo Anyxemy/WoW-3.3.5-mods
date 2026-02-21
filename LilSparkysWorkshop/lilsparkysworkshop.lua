@@ -1939,7 +1939,7 @@ LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(r
 		buttonValue.text = getglobal("LSWTradeSkillValue"..id.."Text")
 		buttonValue.text:SetText("00 00")
 		buttonValue:Hide()
-		buttonValue:SetWidth(40)
+		buttonValue:SetWidth(38)
 
 		buttonValue:RegisterForClicks("AnyUp")
 		buttonValue:SetScript("OnClick", ValueButton_OnClick)
@@ -1954,7 +1954,7 @@ LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(r
 		buttonCost.text = getglobal("LSWTradeSkillCost"..id.."Text")
 		buttonCost.text:SetText("00 00")
 
-		buttonCost:SetWidth(40)
+		buttonCost:SetWidth(38)
 		buttonCost:Hide()
 
 		buttonCost:RegisterForClicks("AnyUp")
@@ -2037,7 +2037,7 @@ LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(r
 		t.Test = test
 		t.Init = init
 
---LSW:ChatMessage("registering pricing module "..name);
+		--LSW:ChatMessage("registering pricing module "..name);
 		table.insert(pricingSupportList, t)
 
 		if LSW.initialized then
@@ -2056,7 +2056,7 @@ LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(r
 	local function InitializeFrameSupport()
 		for i = 1, #frameSupportList do
 			if frameSupportList[i].Test(i) then
---				LSW:ChatMessage("LSW: Initializing "..frameSupportList[i].name.." frame support")
+				--LSW:ChatMessage("LSW: Initializing "..frameSupportList[i].name.." frame support")
 				frameSupportList[i].Init(i)
 				break
 			end
@@ -2068,9 +2068,9 @@ LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(r
 		SetSecondaryLevels()
 
 		for i = 1, #pricingSupportList do
---		LSW:ChatMessage("LSW: Checking "..pricingSupportList[i].name.." pricing support")
+		--LSW:ChatMessage("LSW: Checking "..pricingSupportList[i].name.." pricing support")
 			if pricingSupportList[i].Test(i) then
---				LSW:ChatMessage("LSW: Initializing "..pricingSupportList[i].name.." pricing support")
+				--LSW:ChatMessage("LSW: Initializing "..pricingSupportList[i].name.." pricing support")
 				supportMenuList[pricingSupportList[i].name] = pricingSupportList[i].Init(i)
 			end
 		end
@@ -2153,6 +2153,7 @@ LSW:DebugMessage(spam, "recipe "..(recipeCache.names[recipeID] or GetSpellLink(r
 
 		if event == "MODIFIER_STATE_CHANGED" then
 			UpdateWindow()
+			if AckisRecipeList.Frame and AckisRecipeList.Frame:IsVisible() then Asup:OnUpdate() end
 		end
 	end)
 

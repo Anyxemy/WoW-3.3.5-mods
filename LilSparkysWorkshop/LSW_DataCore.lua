@@ -23,6 +23,7 @@
 	LSW_DataCore = LSW_DataCore or {}     -- Создаем уникальный глобальный объект
 
 	---@class RdbEntry
+	---@field scrollID number     ID свитка умения
 	---@field itemID number     ID предмета результата
 	---@field reagents table < number, number > [itemID] = количество
 
@@ -131,7 +132,6 @@ local function GetReagentsFromSkillet(recipeID)
 end
 
 
---- ==========================================
 ---@region prices 2. ПОЛУЧЕНИЕ ЦЕНЫ
 --- ==========================================
 
@@ -144,36 +144,78 @@ function DataCore:GetCost(recipe_id)
 	if not rID then dprint("No recipeID for GetCost") return "---" end
 	local cost, value, price, hilight = 0, 0, 0, false
 	local sCost, sValue, iName, rName, rStr = "-", "-", "no item name", "no reagent name", "---"
-	local s
+	local s = ""
 	local sName, _ = GetSpellInfo(rID) or "No Skill name", nil
 	dprint("--- Рецепт:  " .. sName .. " --- id " .. rID)
 
 	-- 1. VALUE - ЦЕНА РЕЗУЛЬТАТА УМЕНИЯ - ПРЕДМЕТ ('a' - auction 'v' - vendor)
 
+
 	-- LSW:SkillCost LSW:SkillValue НЕ ПОКАЗЫВАЮТ НЕИЗВЕСТНЫЕ РЕЦЕПТЫ!
 	local itemID = Rdb[rID] and Rdb[rID].itemID or ARL:GetRecipeData(rID, "item_id")
-	iName, _ = GetItemInfo(itemID) or "Name not found", ""
+	if GetItemInfo(itemID) then
+		iName, _ = GetItemInfo(itemID), ""
 
-	value, s = LSW:GetSkillValue(rID) or 0, ''
-	dprint(iName .. "  GetSkillValue - " .. tostring(value), s .. "   id ".. tostring(itemID))
+		value, s = LSW:GetSkillValue(rID) or 0, ''
+		dprint(iName .. "  GetSkillValue - " .. tostring(value), s .. "   id ".. tostring(itemID))
 
-	if value <= 0 and itemID and LSW then
-		value, s = LSW:GetItemCost(itemID) or 0, ""
-		dprint(iName .. "  GetItemCost - " .. tostring(value), s .. "   id ".. tostring(itemID))
+		-- если в SkillValue цены нет, смотртим GetItemCost()
+		if value <= 0 and itemID and LSW then
+			value, s = LSW:GetItemCost(itemID) or 0, ""
+			dprint(iName .. "  GetItemCost - " .. tostring(value), s .. "   id ".. tostring(itemID))
+		end
+
+		-- сверяем с ценой аукциона
+		local auCost = Auctionator.API.v1.GetAuctionPriceByItemID("LSW", itemID) or 0
+		if auCost and (value < auCost) then
+			value = auCost
+		end
 	end
 
 	-- 2. COST - ЦЕНА ИСПОЛЬЗОВАНИЯ УМЕНИЯ - РЕАГЕНТЫ, СЕБЕСТОИМОСТЬ
 	cost = LSW:GetSkillCost(rID) or 0
 
+	-- если в SkillCost цены нет, считаем все реагенты по GetItemCost()
 	if cost <= 0 and LSW and Rdb and Rdb[rID] and Rdb[rID].reagents then
 		for k, v in pairs(Rdb[rID].reagents) do     -- берем реагенты из базы
-			price = (LSW:GetItemCost(k) or 0)
+			--price = (LSW:GetItemCost(k) or 0)
+			dprint("Reagent index(id) ", k, "   value(count) ", v)
+			if k and type(k) == "number" then
+				price = Auctionator.API.v1.GetAuctionPriceByItemID("LSW", k) or 0
+			else
+				price = 0
+			end
 			cost = cost + price * v        -- складываем их цены
 			rName, _ = GetItemInfo(k) or "Reagent name not found", ""
 			dprint("  " .. rName .. " - " .. cost .. "   id ".. k)
 		end
 	else
 		if cost > 0 then dprint(sName .. "  GetSkillCost - " .. cost .. "   id ".. rID) end
+	end
+
+	-- уровни прокачки скила при нажатой АЛЬТ (и цена свитка рецепта)
+	if IsAltKeyDown() then
+
+		local scrollPrice = "-"
+		dprint("Запрос цены аукцинатора ...")
+		--if LSW.scrollData[rID] and LSW.scrollData[rID].scrollID then
+		if ARL_SpellToRecipe and ARL_SpellToRecipe[rID] then
+			local auCost = Auctionator.API.v1.GetAuctionPriceByItemID("LSW", ARL_SpellToRecipe[rID]) or 0
+			dprint("Цена на аукционе ", auCost)
+			if auCost > 0 then scrollPrice = ("цена " .. LSW:FormatMoney(auCost, true) .. " || ") or "-" end
+		else
+			dprint("ARL_SpellToRecipe ", ARL_SpellToRecipe, "   ARL_SpellToRecipe[rID] ", ARL_SpellToRecipe[rID])
+		end
+
+		local cOptimal = "FFD86800"
+		local cMedium = "FFDFC800"
+		local cEasy = "FF108800"
+		rStr = string.format("|c%s%-4d|r |c%s%-4d|r", cMedium, ARL:GetRecipeData(rID, "medium_level"), cEasy, ARL:GetRecipeData(rID, "easy_level"))
+		--rStr = string.format("|c%s%-4d|r |c%s%-4d|r |c%s%-4d|r %-4d", cOptimal, ARL:GetRecipeData(rID, "optimal_level"), cMedium, ARL:GetRecipeData(rID, "medium_level"), cEasy, ARL:GetRecipeData(rID, "easy_level"), ARL:GetRecipeData(rID, "trivial_level"))
+		if scrollPrice ~= "-" then
+			rStr = scrollPrice .. rStr
+		end
+		return rStr
 	end
 
 	if value > cost then hilight = true end
@@ -189,29 +231,29 @@ end
 ---@region Update Rdb  3. ОБНОВЛЕНИЕ И НАПОЛНЕНИЕ БАЗЫ
 -- ==========================================
 
+--- 
 
 function DataCore:ForceLoadDatabase(profName)
     -- profName должен быть "FirstAid", "Alchemy" и т.д.
     local initFunc = "Init" .. profName
-    
-    if AckisRecipeList[initFunc] then
+
+	if AckisRecipeList[initFunc] then
         -- 1. Вызываем функцию. Она "прочитает" файл за нас.
         local count = AckisRecipeList[initFunc](AckisRecipeList)
-        
-        -- 2. Теперь данные в памяти. Проходим по ним:
+
+		-- 2. Теперь данные в памяти. Проходим по ним:
         for spellID, recipe in pairs(AckisRecipeList.recipe_list) do
             -- Проверяем, что этот рецепт из той базы, которую мы только что загрузили
             -- (ARL сваливает всё в одну кучу, поэтому фильтруем)
             local itemID = recipe.recipe_item
-            if itemID and not Rdb[itemID] then
+            if itemID and not Rdb[spellID] then
                 -- Записываем в нашу Rdb
-                Rdb[itemID] = {}
+                Rdb[spellID] = { reagents = {} }
             end
         end
         print("Загружено из файла " .. profName .. ".lua: " .. count .. " рецептов.")
     end
 end
-
 
 
 -- Сканируем базу рецептов AckisRecipeList, из фрейма, все рецепты выбранной профессии
@@ -257,7 +299,9 @@ function DataCore:PrepareQueue()
 
 		-- Если spellID нет в базе или принудительное обновление
 		if spellID and entries[i].type == "header" and (not Rdb[spellID] or DataCore.flush) then
-			Rdb[spellID].itemID = nil Rdb[spellID].reagents = {}
+			Rdb[spellID] = Rdb[spellID] or { reagents = {} }
+			if Rdb[spellID].itemID then Rdb[spellID].itemID = nil end
+			if Rdb[spellID].reagents then Rdb[spellID].reagents = {} end
 			table.insert(self.Queue, spellID)
 			count_total = count_total + 1
 			count_new = count_new + 1
@@ -326,7 +370,7 @@ function DataCore:ScanStep()
 					name = reag
 				end
 				name = name:trim()
-				if not name then dprint("reagent name not found (str 320)") break end
+				if not name then dprint("reagent name not found (str 355)") break end
 
 				dprint("name " .. name .. "  count " .. tostring(count))
 				-- Теперь GetItemInfo точно получит "Сребролист", а не "Сребролист (2)"
@@ -413,6 +457,13 @@ end
 -- 3. СОБЫТИЯ И ХУКИ
 -- ==========================================
 
+function DataCore:Mana()
+	local unit_mana = UnitMana("player")
+	local unit_mana_max = UnitManaMax("player")
+	local mana_regen = GetManaRegen()
+
+end
+
 -- определение необходимости пополнения и запуск обновления базы
 function DataCore:OpenARL()
 	if not ARL or not ARL.Frame then dprint("Ошибка! ARL еще не загружен.|r") return end
@@ -434,6 +485,44 @@ function DataCore:OpenARL()
 		print("Обновление не требуется", prof, entrCount, "/", profRdb)
 	end
 end
+
+local regen_en = true
+local master = CreateFrame("Frame", "LSWMasterFrame")
+--master:RegisterEvent("TRADE_SKILL_SHOW")
+master:RegisterEvent("PLAYER_REGEN_ENABLED")
+master:RegisterEvent("PLAYER_REGEN_DISABLED")
+
+master:SetScript("OnEvent", function (self, event)
+if event == "PLAYER_REGEN_ENABLED" then
+	regen_en = true
+end
+if event == "PLAYER_REGEN_DISABLED" then
+	regen_en = false
+end
+end)
+
+
+
+--master:SetScript("OnEvent", function(frame, event, arg1, arg2)
+--	if event == "TRADE_SKILL_SHOW" then
+--		master:UnregisterEvent(event)
+--		OnLoad()
+--		master:RegisterEvent("TRADE_SKILL_UPDATE")
+--		master:RegisterEvent("MODIFIER_STATE_CHANGED")
+--		UpdateWindow()
+--
+--		LSW:CreateTimer("updateData-UpdateEvent", 0.1, LSW.UpdateData)
+--	end
+--	if event == "TRADE_SKILL_UPDATE" then
+--		if GetTradeSkillLine() then
+--			LSW:CreateTimer("updateData-UpdateEvent", 0.1, LSW.UpdateData)
+--		end
+--	end
+--
+--	if event == "MODIFIER_STATE_CHANGED" then
+--		UpdateWindow()
+--	end
+--end)
 
 -- ==========================================
 --		ИНИЦИАЛИЗАЦИЯ И ИНТЕРФЕЙС
